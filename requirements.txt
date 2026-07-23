@@ -1,0 +1,31 @@
+# ---- Core ML ----
+torch>=2.1.0
+torchvision>=0.16.0
+timm>=0.9.10                # EfficientNet / Xception backbones
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+opencv-python>=4.8.0
+pillow>=10.0.0
+albumentations>=1.3.1      # augmentation
+matplotlib>=3.7.0
+seaborn>=0.12.2
+tqdm>=4.66.0
+grad-cam>=1.4.8            # pytorch-grad-cam
+
+# ---- Backend (FastAPI) ----
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+sqlalchemy>=2.0.25
+pymysql>=1.1.0             # MySQL driver
+cryptography>=42.0.0       # required by pymysql for auth
+alembic>=1.13.0            # migrations
+pydantic>=2.6.0
+pydantic-settings>=2.1.0
+python-jose[cryptography]>=3.3.0   # JWT
+passlib[bcrypt]>=1.7.4             # password hashing
+python-multipart>=0.0.9           # file uploads
+email-validator>=2.1.0
+
+# ---- Utilities ----
+python-dotenv>=1.0.0
