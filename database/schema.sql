@@ -1,5 +1,5 @@
 -- =====================================================================
---  Deep Fake Detection System — MySQL Schema
+--  AuthentiScan (Deep Fake Detection System) — MySQL Schema
 --  Engine: InnoDB | Charset: utf8mb4
 --  Run:  mysql -u root -p < database/schema.sql
 -- =====================================================================

@@ -30,8 +30,8 @@ from app.routers import admin, analytics, auth, detection, history  # noqa: E402
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Deepfake Detection API",
-        description="Detect deepfake images & videos with explainable AI (Grad-CAM).",
+        title="AuthentiScan API",
+        description="AuthentiScan — detect deepfake images & videos (GAN faces, face swaps, AI-generated images) with an explainable ensemble.",
         version="1.0.0",
     )
 

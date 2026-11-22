@@ -29,7 +29,7 @@ export default function Register() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <form onSubmit={handleSubmit} className="card w-full max-w-md">
         <h1 className="mb-1 text-center text-2xl font-bold text-brand">Create account</h1>
-        <p className="mb-6 text-center text-sm text-slate-500">Join the DeepFake Detector</p>
+        <p className="mb-6 text-center text-sm text-slate-500">Join AuthentiScan</p>
 
         <label className="label">Username</label>
         <input required minLength={3} value={form.username} onChange={update("username")} className="input mb-4" />

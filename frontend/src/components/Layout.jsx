@@ -23,7 +23,7 @@ export default function Layout() {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2 font-bold text-brand">
-            <span className="text-xl">🛡️</span> DeepFake Detector
+            <span className="text-xl">🛡️</span> AuthentiScan
           </div>
           <nav className="hidden gap-1 md:flex">
             {links.map((l) => (

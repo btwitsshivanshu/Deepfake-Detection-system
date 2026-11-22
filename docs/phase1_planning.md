@@ -1,6 +1,6 @@
 # Phase 1 — Project Planning
 
-**Project:** Deep Fake Detection System Using Deep Learning for Image and Video Authentication
+**Project:** AuthentiScan — Deep Fake Detection System Using Deep Learning for Image and Video Authentication
 **Domain:** Deep Learning · Computer Vision · Media Forensics · Full-Stack Web Engineering
 
 ---

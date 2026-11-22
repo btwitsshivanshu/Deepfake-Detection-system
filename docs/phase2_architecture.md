@@ -290,7 +290,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    U[User] -->|media, credentials| S((Deepfake Detection System))
+    U[User] -->|media, credentials| S((AuthentiScan))
     S -->|verdict, confidence, heatmap, history| U
     A[Admin] -->|manage users/models| S
     S -->|reports, logs| A

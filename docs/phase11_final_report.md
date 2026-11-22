@@ -1,4 +1,4 @@
-# Deep Fake Detection System Using Deep Learning for Image and Video Authentication
+# AuthentiScan: An Explainable AI System for Synthetic Media Detection
 ## Final Year Project Report
 
 > This is the master report document (Phase 11). It is structured to expand to **80–100 pages**
@@ -32,7 +32,7 @@ legitimate creative applications, their misuse for misinformation, financial fra
 theft, and defamation poses a serious threat to digital trust. Human observers can no longer
 reliably distinguish authentic media from sophisticated forgeries.
 
-This project presents an end-to-end **Deep Fake Detection System** that authenticates both
+This project presents **AuthentiScan**, an end-to-end deepfake detection system that authenticates both
 images and videos. It was built in two stages. First, three CNN architectures — **ResNet50,
 EfficientNet-B0 and XceptionNet** — were fine-tuned via transfer learning and compared on a
 GAN-face dataset; scaling the data from 3,000 to 200,000 images raised XceptionNet to **98%**
@@ -62,7 +62,7 @@ and real-world extension.
 
 ## 2. Synopsis
 
-**Title:** Deep Fake Detection System Using Deep Learning for Image and Video Authentication
+**Title:** AuthentiScan: An Explainable AI System for Synthetic Media Detection
 
 **Problem:** Automated, explainable detection of manipulated facial media.
 

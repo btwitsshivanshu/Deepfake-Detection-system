@@ -27,7 +27,7 @@ export default function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <form onSubmit={handleSubmit} className="card w-full max-w-md">
-        <h1 className="mb-1 text-center text-2xl font-bold text-brand">🛡️ DeepFake Detector</h1>
+        <h1 className="mb-1 text-center text-2xl font-bold text-brand">🛡️ AuthentiScan</h1>
         <p className="mb-6 text-center text-sm text-slate-500">Sign in to your account</p>
 
         <label className="label">Email</label>

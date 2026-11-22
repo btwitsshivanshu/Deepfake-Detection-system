@@ -1,6 +1,6 @@
 # Setup & Run Guide
 
-Complete instructions to run the Deep Fake Detection System locally.
+Complete instructions to run AuthentiScan (Deep Fake Detection System) locally.
 
 ---
 
