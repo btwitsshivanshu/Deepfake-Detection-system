@@ -69,7 +69,7 @@ CREATE TABLE predictions (
     file_id         INT NOT NULL,
     model_id        INT NOT NULL,
     media_type      ENUM('image','video') NOT NULL,
-    verdict         ENUM('real','fake') NOT NULL,
+    verdict         ENUM('real','fake','uncertain') NOT NULL,
     confidence      FLOAT NOT NULL,
     frames_analyzed INT   NOT NULL DEFAULT 1,
     inference_ms    INT   NULL,
@@ -130,4 +130,5 @@ INSERT INTO users (username, email, hashed_password, role) VALUES
 INSERT INTO models (name, architecture, weights_path, accuracy, auc, f1_score, is_active) VALUES
 ('ResNet50-DF',       'resnet50',        'ml/checkpoints/resnet50_best.pth',        0.912, 0.951, 0.910, 1),
 ('EfficientNet-B0-DF','efficientnet_b0', 'ml/checkpoints/efficientnet_b0_best.pth', 0.928, 0.963, 0.927, 1),
-('Xception-DF',       'xception',        'ml/checkpoints/xception_best.pth',        0.941, 0.972, 0.940, 1);
+('Xception-DF',       'xception',        'ml/checkpoints/xception_best.pth',        0.941, 0.972, 0.940, 1),
+('Ensemble-DF',       'ensemble',        'ml/checkpoints/combiner.pkl',             NULL,  NULL,  NULL,  1);

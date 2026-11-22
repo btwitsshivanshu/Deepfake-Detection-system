@@ -10,7 +10,7 @@ via the model factory. Features:
   - per-epoch metric logging
 
 Usage:
-    python -m ml.training.train --arch xception --data datasets/processed --epochs 25
+    python -m ml.training.train --arch xception --data datasets/hemg --epochs 25
 """
 from __future__ import annotations
 
@@ -55,8 +55,11 @@ def _evaluate(model, loader, criterion, device):
     model.eval()
     loss_sum, y_true, y_pred, y_prob = 0.0, [], [], []
     for images, labels in loader:
-        images, labels = images.to(device), labels.to(device)
-        logits = model(images)
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+        with autocast(enabled=device.type == "cuda"):
+            logits = model(images)
+        logits = logits.float()
         loss_sum += criterion(logits, labels).item() * images.size(0)
         probs = torch.softmax(logits, dim=1)[:, 1]
         y_prob.extend(probs.cpu().tolist())
@@ -67,7 +70,8 @@ def _evaluate(model, loader, criterion, device):
     return avg_loss, metrics
 
 
-def train(arch: str, data_root: str, cfg=CONFIG) -> Path:
+def train(arch: str, data_root: str, cfg=CONFIG, resume: str | None = None,
+          ckpt_name: str | None = None, log_every: int = 200) -> Path:
     PATHS.ensure()
     logger = get_logger("train", PATHS.logs / f"train_{arch}.log")
     set_seed(cfg.seed)
@@ -78,9 +82,19 @@ def train(arch: str, data_root: str, cfg=CONFIG) -> Path:
         data_root, image_size=cfg.image_size, batch_size=cfg.batch_size,
         val_split=cfg.val_split, test_split=cfg.test_split,
         num_workers=cfg.num_workers, seed=cfg.seed,
+        max_per_class=cfg.max_per_class,
     )
 
-    model = build_model(arch, num_classes=cfg.num_classes, pretrained=True).to(device)
+    logger.info("Data: %s | train=%d val=%d test=%d", data_root,
+                len(train_loader.dataset), len(val_loader.dataset), len(test_loader.dataset))
+
+    model = build_model(arch, num_classes=cfg.num_classes, pretrained=resume is None)
+    if resume:
+        state = torch.load(resume, map_location="cpu")
+        state = state.get("model_state", state) if isinstance(state, dict) else state
+        model.load_state_dict(state)
+        logger.info("Resumed weights from %s", resume)
+    model = model.to(device)
     criterion = nn.CrossEntropyLoss(label_smoothing=cfg.label_smoothing)
     optimizer = _make_optimizer(model, cfg)
     scheduler = _make_scheduler(optimizer, cfg)
@@ -88,15 +102,17 @@ def train(arch: str, data_root: str, cfg=CONFIG) -> Path:
 
     best_val = float("inf")
     patience = 0
-    ckpt_path = PATHS.checkpoints / f"{arch}_best.pth"
+    ckpt_path = PATHS.checkpoints / (ckpt_name or f"{arch}_best.pth")
     history = []
 
     for epoch in range(1, cfg.epochs + 1):
         model.train()
         t0, running = time.time(), 0.0
-        for images, labels in train_loader:
-            images, labels = images.to(device), labels.to(device)
-            optimizer.zero_grad()
+        n_batches = len(train_loader)
+        for step, (images, labels) in enumerate(train_loader, 1):
+            images = images.to(device, non_blocking=True)
+            labels = labels.to(device, non_blocking=True)
+            optimizer.zero_grad(set_to_none=True)
             with autocast(enabled=scaler.is_enabled()):
                 logits = model(images)
                 loss = criterion(logits, labels)
@@ -104,6 +120,9 @@ def train(arch: str, data_root: str, cfg=CONFIG) -> Path:
             scaler.step(optimizer)
             scaler.update()
             running += loss.item() * images.size(0)
+            if log_every and step % log_every == 0:
+                logger.info("  epoch %02d step %d/%d loss=%.4f (%.0fs)",
+                            epoch, step, n_batches, loss.item(), time.time() - t0)
 
         if scheduler:
             scheduler.step()
@@ -146,16 +165,18 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Train a deepfake detector")
     p.add_argument("--arch", default=CONFIG.architecture,
                    choices=["resnet50", "efficientnet_b0", "xception"])
-    p.add_argument("--data", default="datasets/processed")
+    p.add_argument("--data", default="datasets/hemg")
     p.add_argument("--epochs", type=int, default=CONFIG.epochs)
     p.add_argument("--batch-size", type=int, default=CONFIG.batch_size)
     p.add_argument("--lr", type=float, default=CONFIG.learning_rate)
+    p.add_argument("--resume", default=None, help="checkpoint to start from")
+    p.add_argument("--ckpt-name", default=None, help="output file in ml/checkpoints/")
     args = p.parse_args()
 
     CONFIG.epochs = args.epochs
     CONFIG.batch_size = args.batch_size
     CONFIG.learning_rate = args.lr
-    train(args.arch, args.data, CONFIG)
+    train(args.arch, args.data, CONFIG, resume=args.resume, ckpt_name=args.ckpt_name)
 
 
 if __name__ == "__main__":

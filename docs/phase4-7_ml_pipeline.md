@@ -7,7 +7,7 @@ and is importable as a package (`from ml...`), so **run every command from the p
 
 ## Phase 4 — Dataset Module
 
-### Dataset actually used (this project)
+### Dataset used for the Stage-1 prototype
 | Dataset | Content | Access |
 |---------|---------|--------|
 | **`Hemg/deepfake-and-real-images`** (HuggingFace) | Real vs AI-generated/deepfake face **images** (labels: Real / Fake) | Public — no access form |
@@ -18,7 +18,9 @@ via the public HuggingFace datasets-server (no credentials) by
 face-centric; the pipeline still runs a face-crop + resize before training.
 
 ```bash
-# Pull a balanced sample into datasets/processed/{real,fake}
+# (Stage 1 prototype) pull a balanced sample into datasets/processed/{real,fake}
+# Final system: full Hemg via `python -m ml.dataset.fetch_hf_full --out datasets/hemg`
+# plus 140k-Faces, OpenFake and DeepFakeFace — see phase13_generalization.md §13.4
 python -m ml.dataset.fetch_hf_sample --per-class 1500 --only-label 0 --start-offset 0
 python -m ml.dataset.fetch_hf_sample --per-class 1500 --only-label 1 --start-offset 95000
 python -m ml.dataset.validator --root datasets/processed
@@ -56,6 +58,10 @@ python -m ml.dataset.preprocess --videos-dir datasets/raw/faceforensics \
 
 ---
 
+> **Later stages:** the dataset was scaled to ~330k images from four public datasets, faces are now
+> detected with YuNet, and three specialised detectors are combined. See
+> [phase13_generalization.md](phase13_generalization.md).
+
 ## Phase 5 — ML Pipeline
 
 ```
@@ -76,7 +82,7 @@ ml/
 ```
 
 ### Pipeline stages
-1. **Preprocessing** — face detection & crop (Haar cascade); frame sampling for video.
+1. **Preprocessing** — face detection & crop (YuNet CNN detector; Haar cascade as fallback); phone-screenshot cropping; frame sampling for video.
 2. **Augmentation** — flips, shifts, JPEG compression, noise, colour jitter
    (chosen to preserve forensic artifacts while improving robustness).
 3. **Splitting** — stratified 70/15/15 train/val/test via scikit-learn.

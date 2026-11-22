@@ -19,10 +19,10 @@ def train_transforms(image_size: int = 224) -> A.Compose:
     return A.Compose([
         A.Resize(image_size, image_size),
         A.HorizontalFlip(p=0.5),
-        A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.1, rotate_limit=10, p=0.4),
+        A.Affine(translate_percent=(-0.05, 0.05), scale=(0.9, 1.1), rotate=(-10, 10), p=0.4),
         A.OneOf([
-            A.GaussNoise(var_limit=(5.0, 25.0)),
-            A.ImageCompression(quality_lower=60, quality_upper=100),  # JPEG artifacts
+            A.GaussNoise(std_range=(0.01, 0.02)),            # ~ var 5-25 on a 0-255 scale
+            A.ImageCompression(quality_range=(60, 100)),     # JPEG artifacts
         ], p=0.4),
         A.RandomBrightnessContrast(brightness_limit=0.15, contrast_limit=0.15, p=0.4),
         A.HueSaturationValue(hue_shift_limit=8, sat_shift_limit=12, val_shift_limit=8, p=0.3),

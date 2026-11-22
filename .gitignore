@@ -1,32 +1,66 @@
-# Byte-compiled / optimized
+# ---------------------------------------------------------------- Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
 env/
+.pytest_cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
 
-# ML artifacts
-ml/checkpoints/*.pth
+# ---------------------------------------------------------------- ML artifacts
+# Trained weights are shared separately (GitHub Release / Drive), not via git.
+ml/checkpoints/
 ml/logs/
 ml/reports/
-datasets/raw/
-datasets/processed/
+datasets/
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.npy
+*.npz
+*.parquet
+.cache/
+# (ml/weights/face_detection_yunet_2023mar.onnx IS committed — the app needs it)
 
-# Storage
+# ---------------------------------------------------------------- Uploads, results, media
 storage/
 *.log
 
-# Node / frontend
+# ---------------------------------------------------------------- Archives
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+
+# ---------------------------------------------------------------- Node / frontend
 node_modules/
 frontend/dist/
 frontend/.vite/
 
-# Env & secrets
+# ---------------------------------------------------------------- Env & secrets
 .env
+.env.*
+!.env.example
 *.sqlite3
 
-# OS / IDE
+# ---------------------------------------------------------------- Internal report-preparation files
+# (correction notes about the draft, and the synopsis PDF that contains roll numbers)
+docs/REPORT_UPDATE.md
+docs/report/AUDIT_Draft_Report.md
+docs/report/AuthentiScan_Report_Changes.pdf
+docs/report/build_changes.py
+docs/report/DeepFake_Report_Updated.pdf
+docs/report/build_report.py
+docs/report/srms_logo.png
+
+# ---------------------------------------------------------------- OS / IDE
 .DS_Store
+Thumbs.db
+desktop.ini
 .idea/
 .vscode/

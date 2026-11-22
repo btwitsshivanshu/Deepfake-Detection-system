@@ -17,7 +17,7 @@ class Prediction(Base):
     file_id: Mapped[int] = mapped_column(ForeignKey("uploaded_files.id", ondelete="CASCADE"))
     model_id: Mapped[int] = mapped_column(ForeignKey("models.id", ondelete="RESTRICT"))
     media_type: Mapped[str] = mapped_column(Enum("image", "video"), nullable=False)
-    verdict: Mapped[str] = mapped_column(Enum("real", "fake"), nullable=False)
+    verdict: Mapped[str] = mapped_column(Enum("real", "fake", "uncertain"), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     frames_analyzed: Mapped[int] = mapped_column(Integer, default=1)
     inference_ms: Mapped[int | None] = mapped_column(Integer)

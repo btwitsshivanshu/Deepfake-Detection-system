@@ -12,6 +12,7 @@ each split in a DataLoader with the appropriate transforms.
 """
 from __future__ import annotations
 
+import random
 from pathlib import Path
 
 import numpy as np
@@ -67,9 +68,12 @@ def build_dataloaders(
     test_split: float = 0.15,
     num_workers: int = 4,
     seed: int = 42,
+    max_per_class: int | None = None,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     """Return (train_loader, val_loader, test_loader) with stratified splits."""
     samples = _gather_samples(root)
+    if max_per_class:
+        samples = _capped(samples, max_per_class, seed)
     labels = [lbl for _, lbl in samples]
 
     train_val, test = train_test_split(
@@ -85,9 +89,34 @@ def build_dataloaders(
     val_ds = DeepfakeImageDataset(val, eval_transforms(image_size))
     test_ds = DeepfakeImageDataset(test, eval_transforms(image_size))
 
-    common = dict(batch_size=batch_size, num_workers=num_workers, pin_memory=True)
+    common = dict(batch_size=batch_size, num_workers=num_workers, pin_memory=True,
+                  persistent_workers=num_workers > 0,
+                  prefetch_factor=4 if num_workers > 0 else None)
     return (
         DataLoader(train_ds, shuffle=True, **common),
         DataLoader(val_ds, shuffle=False, **common),
         DataLoader(test_ds, shuffle=False, **common),
     )
+
+
+# --- Fixed held-out split (shared by every later training / evaluation script) ---
+def _capped(samples, max_per_class, seed):
+    """Per-class cap, identical to build_dataloaders(max_per_class=...)."""
+    rng = random.Random(seed)
+    out = []
+    for cls_idx in sorted({lbl for _, lbl in samples}):
+        cls = [s for s in samples if s[1] == cls_idx]
+        rng.shuffle(cls)
+        out.extend(cls[:max_per_class])
+    return out
+
+
+def previous_split(all_samples, max_per_class, val_split, test_split, seed):
+    samples = _capped(all_samples, max_per_class, seed) if max_per_class else all_samples
+    labels = [l for _, l in samples]
+    train_val, test = train_test_split(samples, test_size=test_split,
+                                       stratify=labels, random_state=seed)
+    tv_labels = [l for _, l in train_val]
+    _, val = train_test_split(train_val, test_size=val_split / (1.0 - test_split),
+                              stratify=tv_labels, random_state=seed)
+    return val, test

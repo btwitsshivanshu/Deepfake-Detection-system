@@ -52,7 +52,8 @@ export default function UploadDetect({ accept, onDetect, title }) {
 
         <label className="label">Model</label>
         <select value={model} onChange={(e) => setModel(e.target.value)} className="input mb-4">
-          <option value="">Default (Xception)</option>
+          <option value="">Default (Ensemble: GAN + face-swap + AI-image)</option>
+          <option value="ensemble">Ensemble (all 3 detectors)</option>
           <option value="resnet50">ResNet50</option>
           <option value="efficientnet_b0">EfficientNet-B0</option>
           <option value="xception">XceptionNet</option>

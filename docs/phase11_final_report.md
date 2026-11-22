@@ -33,22 +33,30 @@ theft, and defamation poses a serious threat to digital trust. Human observers c
 reliably distinguish authentic media from sophisticated forgeries.
 
 This project presents an end-to-end **Deep Fake Detection System** that authenticates both
-images and videos using convolutional neural networks. Three state-of-the-art architectures —
-**ResNet50, EfficientNet-B0, and XceptionNet** — are fine-tuned via transfer learning
-(ImageNet-pretrained backbones) and compared. In this prototype they are trained on a balanced
-**3,000-image** real/fake face dataset (public HuggingFace `Hemg/deepfake-and-real-images`);
-the pipeline also supports the standard video benchmarks (FaceForensics++, Celeb-DF, DFDC) for
-scale-up. The system extracts faces from media, performs frame-level inference for video, and
-aggregates results into a final verdict with a confidence score. To make predictions
-interpretable, **Grad-CAM** is used to visualize the facial regions responsible for each decision.
+images and videos. It was built in two stages. First, three CNN architectures — **ResNet50,
+EfficientNet-B0 and XceptionNet** — were fine-tuned via transfer learning and compared on a
+GAN-face dataset; scaling the data from 3,000 to 200,000 images raised XceptionNet to **98%**
+accuracy. Testing on other kinds of fakes, however, showed that this in-distribution accuracy
+did not generalize: the same model was a coin-flip on face swaps and *inverted* (ROC-AUC 0.215)
+on images from modern diffusion generators such as Gemini, Midjourney and Flux.
+
+The final system therefore uses an **ensemble of three specialised detectors** — XceptionNet
+for GAN-generated faces, an **EfficientNet-B4 trained with Self-Blended Images** for face swaps,
+and a **frozen CLIP ViT-L/14 with a linear classifier** for AI-generated images — whose outputs
+are merged by a gradient-boosted **combiner** fitted only on validation data. Training used four
+public datasets covering more than 90 generators. The system also locates the photo inside phone
+**screenshots**, reports an explicit **UNCERTAIN** verdict for borderline cases, names the likely
+type of manipulation, and explains decisions with **Grad-CAM**.
 
 The models are served through a secure **FastAPI** backend with **JWT authentication** and a
 **MySQL** database that persists users, uploads, predictions, and audit logs. A responsive
 **React + Tailwind** dashboard lets users upload media, view explainable results, browse their
-prediction history, and explore analytics. On the held-out test split, **XceptionNet** achieves
-**96.4% accuracy / 0.991 ROC-AUC**, **ResNet50** 96.2% / 0.993, and **EfficientNet-B0**
-89.1% / 0.972. The system follows clean architecture and SOLID principles, making it suitable
-for both academic evaluation and real-world extension.
+prediction history, and explore analytics. On a held-out benchmark of 8,000 decisions spanning
+GAN faces, StyleGAN faces, diffusion images and face swaps (clean and WhatsApp-compressed), the
+ensemble reaches **84.5% accuracy / 0.925 ROC-AUC**, up from 70.0% for the best single model,
+with accuracy on diffusion images and face swaps rising from about 49% to about 80%. The system
+follows clean architecture and SOLID principles, making it suitable for both academic evaluation
+and real-world extension.
 
 ---
 
@@ -63,17 +71,20 @@ explains its reasoning with Grad-CAM, and exposes the capability via a secure we
 
 **Approach:**
 - Preprocess media → detect and crop faces → sample frames for video.
-- Train and compare three CNN detectors.
+- Train and compare three CNN detectors; scale the training data.
+- Evaluate on *other* kinds of fakes, then build specialised detectors (GAN faces, face swaps,
+  AI-generated images) and a learned combiner.
+- Crop the photo out of phone screenshots before analysis.
 - Aggregate per-frame predictions to a video-level verdict.
 - Generate Grad-CAM heatmaps for explainability.
 - Serve via FastAPI + JWT; persist in MySQL; present via React.
 
-**Outcome:** A working, documented, production-quality prototype in which the best model
-(XceptionNet) reaches **~96% accuracy / 0.99 ROC-AUC** on the held-out test split, with an
-interpretable, user-facing interface.
+**Outcome:** A working, documented, production-quality system. Single-dataset accuracy reached
+98%; on a four-domain benchmark the ensemble reaches **84.5% accuracy / 0.925 ROC-AUC**
+(70.0% for the best single model), with an interpretable, user-facing interface.
 
-**Tools:** Python, PyTorch, timm, OpenCV, scikit-learn, FastAPI, SQLAlchemy, MySQL, React,
-Tailwind CSS.
+**Tools:** Python, PyTorch, timm, OpenCLIP, OpenCV (YuNet), scikit-learn, Albumentations,
+FastAPI, SQLAlchemy, MySQL, React, Tailwind CSS.
 
 ---
 
@@ -123,11 +134,20 @@ results, and conclusions.
 | 8 | Afchar et al., **MesoNet** (WIFS 2018) | Compact mesoscopic detector | Early deepfake detector |
 | 9 | Nguyen et al., **Capsule-Forensics** (2019) | Capsule networks for forgery | Alternative approach |
 | 10 | Frank et al., **Frequency analysis** (ICML 2020) | GAN spectral artifacts | Complementary cue |
+| 11 | Shiohara & Yamasaki, **Self-Blended Images** (CVPR 2022) | Train swap detectors from real faces blended with themselves | Our face-swap detector |
+| 12 | Radford et al., **CLIP** (ICML 2021) | Image-text pre-training on 400M pairs | Backbone of our AI-image detector |
+| 13 | Ojha et al., **UnivFD** (CVPR 2023) | Linear probe on frozen CLIP generalizes across generators | Our AI-image detector design |
+| 14 | Livernoche et al., **OpenFake** (2025) | Real vs. many modern generators | Training / test data for AI images |
+| 15 | Song et al., **DeepFakeFace** (2023) | Diffusion and InsightFace swaps of celebrities | Unseen face-swap test set |
+| 16 | Wu et al., **YuNet** (2023) | Lightweight CNN face detector | Face detection & landmarks |
 
 ### 4.1 Gap Analysis
-Most academic detectors stop at a model and metrics. Few provide an **integrated, explainable,
-authenticated, full-stack application** with history and analytics. This project fills that gap
-by combining strong detection with usability, security, and interpretability.
+Most academic detectors stop at a model and metrics, and are usually evaluated on the same
+dataset they were trained on. Few provide an **integrated, explainable, authenticated,
+full-stack application**, and fewer still are evaluated across *different kinds* of fakes and
+real-world conditions (compression, screenshots). This project addresses both: a usable,
+secure, explainable application, and a detector evaluated — and redesigned — for
+cross-domain generalization.
 
 ---
 
@@ -186,32 +206,47 @@ separation of concerns and the Dependency Inversion Principle.
 ### 7.1 Overall Pipeline
 ```mermaid
 flowchart LR
-    A[Data Collection] --> B[Preprocessing<br/>face crop, frame sample]
-    B --> C[Augmentation]
-    C --> D[Train/Val/Test split]
-    D --> E[Model Training<br/>ResNet50/EffNet/Xception]
-    E --> F[Evaluation & Comparison]
-    F --> G[Best Model → Inference Engine]
-    G --> H[Grad-CAM Explainability]
+    A[Data Collection<br/>4 public datasets] --> B[Preprocessing<br/>YuNet face crop, frame sample,<br/>screenshot crop]
+    B --> C[Augmentation<br/>incl. JPEG / downscale / blur]
+    C --> D[Fixed Train/Val/Test splits]
+    D --> E1[Stage 1: compare<br/>ResNet50 / EffNet / Xception]
+    E1 --> E2[Stage 2: specialised detectors<br/>Xception · SBI EffNet-B4 · CLIP]
+    E2 --> F[Combiner fitted on validation]
+    F --> G[Cross-domain benchmark<br/>clean + WhatsApp + screenshots]
+    G --> H[Inference engine + Grad-CAM]
     H --> I[API + Web App]
 ```
 
 ### 7.2 Data Preprocessing
-Faces are detected and cropped with an OpenCV Haar cascade (swappable for MTCNN/RetinaFace).
-Videos are uniformly sampled to N frames; each frame's face is cropped. Details in
-[`phase4-7_ml_pipeline.md`](phase4-7_ml_pipeline.md).
+Faces are detected with **OpenCV YuNet** (a small CNN that also returns five landmarks; it
+replaced the Haar cascade) and cropped at the same framing as the training images. Phone
+screenshots are detected and reduced to the embedded photo. Videos are uniformly sampled to N
+frames. Details in [`phase4-7_ml_pipeline.md`](phase4-7_ml_pipeline.md) and
+[`phase13_generalization.md`](phase13_generalization.md).
 
 ### 7.3 Model Training
 AdamW optimizer, cosine LR schedule, label smoothing, mixed-precision (AMP), and early stopping
 on validation loss. The best checkpoint (lowest val loss) is retained.
 
-### 7.4 Inference & Aggregation
-Image → single face → verdict. Video → per-frame fake probabilities → aggregated by mean
-(default), max, or majority vote → verdict + confidence.
+### 7.4 Specialised Detectors and Combiner
+- **GAN faces:** XceptionNet fine-tuned on 200k Hemg + 140k-Faces images.
+- **Face swaps:** EfficientNet-B4 trained with **Self-Blended Images** — each real face is
+  blended with a slightly altered copy of itself, so the model learns blending artefacts
+  without ever seeing a real swap.
+- **AI-generated images:** frozen **CLIP ViT-L/14** features + a logistic-regression head,
+  trained on OpenFake (89 generators) with clean and degraded copies.
+- **Combiner:** gradient-boosted trees over the three probabilities, fitted only on
+  validation data.
 
-### 7.5 Explainability
-Grad-CAM highlights the regions driving the *fake* class score, saved as an overlay and
-surfaced in the UI.
+### 7.5 Inference & Aggregation
+Image → (screenshot crop) → three detector scores → combiner → **REAL / UNCERTAIN / FAKE**
+(uncertain band 0.35–0.65) + likely fake type. Video → per-frame combined probabilities →
+mean → verdict + confidence.
+
+### 7.6 Explainability
+Grad-CAM (from whichever face detector is more suspicious) highlights the regions driving the
+*fake* score; the UI also shows each detector's score, so the user sees *which* detector
+fired.
 
 ---
 
@@ -226,7 +261,16 @@ surfaced in the UI.
 - Training: [`ml/training/train.py`](../ml/training/train.py)
 - Evaluation: [`ml/evaluation/`](../ml/evaluation/)
 - Grad-CAM: [`ml/explain/gradcam.py`](../ml/explain/gradcam.py)
-- Inference engine: [`ml/inference.py`](../ml/inference.py)
+- Inference engine: [`ml/inference.py`](../ml/inference.py) → ensemble in
+  [`ml/ensemble.py`](../ml/ensemble.py)
+- Specialised training: [`ml/training/sbi_train.py`](../ml/training/sbi_train.py),
+  [`ml/training/clip_train.py`](../ml/training/clip_train.py),
+  [`ml/training/mixed_train.py`](../ml/training/mixed_train.py)
+- Self-Blended Images: [`ml/dataset/sbi.py`](../ml/dataset/sbi.py); screenshot cropping:
+  [`ml/dataset/screenshot.py`](../ml/dataset/screenshot.py)
+- Benchmark & combiner: [`ml/evaluation/benchmark.py`](../ml/evaluation/benchmark.py),
+  [`ml/evaluation/fit_combiner.py`](../ml/evaluation/fit_combiner.py),
+  [`ml/evaluation/screenshot_eval.py`](../ml/evaluation/screenshot_eval.py)
 
 ### 8.3 Backend (FastAPI)
 - Auth (JWT, bcrypt): [`backend/app/auth/`](../backend/app/auth/)
@@ -260,11 +304,29 @@ MySQL schema with six tables and full referential integrity —
 
 ## 9. Results & Discussion
 
-Full metrics, plots, and interpretation are in [`phase10_results.md`](phase10_results.md).
-Summary (held-out test split): **XceptionNet 96.4% acc / 0.991 AUC** and **ResNet50 96.2% /
-0.993** are essentially tied for best; **EfficientNet-B0 (89.1% / 0.972)** is the smallest and
-fastest model, illustrating the accuracy-vs-compute trade-off; Grad-CAM confirms the models
-attend to facial regions rather than background.
+Full metrics, plots, and interpretation are in [`phase10_results.md`](phase10_results.md) and
+[`phase13_generalization.md`](phase13_generalization.md).
+
+**Stage 1 (architecture comparison, 3k images):** XceptionNet 96.4% / 0.991 AUC and ResNet50
+96.2% / 0.993 are essentially tied; EfficientNet-B0 (89.1% / 0.972) is smallest and fastest.
+
+**Scaling (XceptionNet):** 30k images → 97.5%; 181k → 98.4% (AUC 0.9986); adding the 140k-Faces
+dataset lifted unseen StyleGAN faces from about 51% to 97.7%.
+
+**Final ensemble (8,000 held-out decisions):**
+
+| Kind of fake | Best single model | Ensemble |
+|---|:---:|:---:|
+| GAN faces (Hemg) | 98.3% | 93.8% |
+| StyleGAN faces | 97.9% | 95.4% |
+| Diffusion / AI images | 48.8% | 81.0% |
+| Face swaps | 49.2% | 79.1% |
+| WhatsApp-compressed (4 sets) | 66.4% | 81.8% |
+| **Overall** | **70.0%** | **84.5% (AUC 0.925)** |
+| Phone screenshots | 72.9% | 84.4% |
+
+The key finding is that in-distribution accuracy overstates real-world performance; dedicated
+detectors for each kind of manipulation, combined by a learned model, generalize far better.
 
 ---
 
@@ -274,7 +336,10 @@ This project delivers a complete, explainable, full-stack deepfake detection sys
 its objectives: accurate image/video classification, confidence scoring, Grad-CAM
 explainability, multi-model comparison, secure authentication, persistent history, and
 analytics. The clean, modular architecture makes it maintainable and extensible, and the
-results validate the effectiveness of CNN-based facial forgery detection.
+results validate the effectiveness of CNN-based facial forgery detection. Beyond the original
+objectives, the project shows — with measurements — that a detector must be evaluated across
+kinds of manipulation, and that a specialised ensemble raises cross-domain accuracy from 70% to
+84.5% while staying explainable and usable.
 
 ---
 
@@ -283,9 +348,14 @@ results validate the effectiveness of CNN-based facial forgery detection.
 - **Temporal modelling** (LSTM/3D-CNN/transformer) to exploit inter-frame inconsistencies.
 - **Frequency-domain features** (FFT/DCT) to catch GAN spectral fingerprints.
 - **Audio-visual detection** for lip-sync and voice-clone forgeries.
-- **Robustness** to compression, adversarial perturbations, and unseen generators.
+- **Real face-swap video data** (Celeb-DF, FaceForensics++) to strengthen the weakest category
+  (face swaps, 72–79%) and to evaluate video detection properly.
+- **More diffusion data** (more of OpenFake's 2.3M images) and fine-tuning CLIP's last layers,
+  especially for Midjourney 7 (57%).
+- **Finer SBI masks** (468-point face mesh) and longer SBI training.
+- **Robustness** to adversarial perturbations and generators released after training.
 - **Real-time / streaming** detection and browser-extension deployment.
-- **Ensemble** of the three detectors for higher reliability.
+- **Knowledge distillation** of the ensemble into one compact model for mobile use.
 - **Dockerization & cloud deployment** with autoscaling and model versioning.
 
 ---
@@ -302,7 +372,16 @@ results validate the effectiveness of CNN-based facial forgery detection.
 8. D. Afchar et al., "MesoNet: a Compact Facial Video Forgery Detection Network," WIFS, 2018.
 9. H. Nguyen et al., "Capsule-Forensics," ICASSP, 2019.
 10. J. Frank et al., "Leveraging Frequency Analysis for Deep Fake Image Recognition," ICML, 2020.
-11. FastAPI Documentation — https://fastapi.tiangolo.com
-12. PyTorch Documentation — https://pytorch.org
-13. React Documentation — https://react.dev
-14. timm (PyTorch Image Models) — https://github.com/huggingface/pytorch-image-models
+11. K. Shiohara and T. Yamasaki, "Detecting Deepfakes with Self-Blended Images," CVPR, 2022.
+12. A. Radford et al., "Learning Transferable Visual Models From Natural Language Supervision," ICML, 2021.
+13. U. Ojha, Y. Li and Y. J. Lee, "Towards Universal Fake Image Detectors that Generalize Across Generative Models," CVPR, 2023.
+14. V. Livernoche et al., "OpenFake: An Open Dataset and Platform Toward Real-World Deepfake Detection," arXiv:2509.09495, 2025.
+15. H. Song et al., "Robustness and Generalizability of Deepfake Detection: A Study with Diffusion Models" (DeepFakeFace), arXiv:2309.02218, 2023.
+16. W. Wu, H. Peng and S. Yu, "YuNet: A Tiny Millisecond-level Face Detector," Machine Intelligence Research, 2023.
+17. Q. Xie et al., "Self-training with Noisy Student improves ImageNet classification," CVPR, 2020.
+18. FastAPI Documentation — https://fastapi.tiangolo.com
+19. PyTorch Documentation — https://pytorch.org
+20. React Documentation — https://react.dev
+21. timm (PyTorch Image Models) — https://github.com/huggingface/pytorch-image-models
+22. OpenCLIP — https://github.com/mlfoundations/open_clip
+23. scikit-learn (HistGradientBoostingClassifier) — https://scikit-learn.org

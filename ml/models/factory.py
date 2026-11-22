@@ -19,11 +19,13 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 from ml.models.resnet50_model import ResNet50Detector
 from ml.models.efficientnet_model import EfficientNetDetector
 from ml.models.xception_model import XceptionDetector
+from ml.models.efficientnet_b4_model import EfficientNetB4Detector
 
 _REGISTRY: dict[str, type[BaseDetector]] = {
     "resnet50": ResNet50Detector,
     "efficientnet_b0": EfficientNetDetector,
     "xception": XceptionDetector,
+    "efficientnet_b4": EfficientNetB4Detector,
 }
 
 

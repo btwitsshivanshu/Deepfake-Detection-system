@@ -49,34 +49,41 @@ pip install -r requirements.txt
 
 ## 3b. (Optional) Enable GPU / CUDA
 `requirements.txt` installs a CPU build of PyTorch. For GPU training, replace it with a
-CUDA build (cu124 matches recent drivers), then set `DEVICE=cuda` in `.env`:
+CUDA build (cu128, tested with an RTX 4050), then set `DEVICE=cuda` in `.env`:
 ```powershell
 pip uninstall -y torch torchvision
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 > A plain `pip install torch` will **not** replace an existing `+cpu` build — uninstall first.
 
 ---
 
-## 4. (Optional) Train models
-Detection endpoints need trained weights in `ml/checkpoints/`. Without them the API returns
-a clear 503 telling you to train first.
+## 4. Model weights (required for detection)
+The default model is the **ensemble** and needs these files in `ml/checkpoints/`:
 
+| File | Detector |
+|---|---|
+| `xception_best.pth` | GAN faces |
+| `efficientnet_b4_sbi_best.pth` | Face swaps (Self-Blended Images) |
+| `clip_vitl14_head.pt` | AI-generated images (head; the CLIP backbone downloads automatically, ~1.7 GB) |
+| `combiner.pkl` | Merges the three scores |
+| `resnet50_best.pth`, `efficientnet_b0_best.pth` | Optional comparison models |
+
+`ml/weights/face_detection_yunet_2023mar.onnx` (YuNet face detector) is in the repo.
+Without weights the API returns a clear 503.
+
+### Training them yourself
+Full commands and timings: [phase13_generalization.md §13.10](phase13_generalization.md).
 ```powershell
-# 1. Fetch a small balanced dataset (public HuggingFace, no login) — see phase4-7 docs
-python -m ml.dataset.fetch_hf_sample --per-class 1500 --only-label 0 --start-offset 0
-python -m ml.dataset.fetch_hf_sample --per-class 1500 --only-label 1 --start-offset 95000
-
-# 2. Train (GPU) — one architecture at a time
-python -m ml.training.train_gpu --arch xception        --epochs 15
-python -m ml.training.train_gpu --arch resnet50        --epochs 15
-python -m ml.training.train_gpu --arch efficientnet_b0 --epochs 15
-#    …or CPU fallback:
-#    python -m ml.training.train_cpu --arch xception --epochs 8
+python -m ml.dataset.fetch_hf_full --out datasets/hemg        # ~1.8 GB download
+python -m ml.training.train_gpu --arch xception --data datasets/hemg --epochs 15
+python -m ml.training.sbi_train --per-source 30000 --epochs 3  # needs D:\archive (140k faces) too
+python -m ml.training.clip_train                              # needs datasets/openfake
+python -m ml.evaluation.benchmark && python -m ml.evaluation.fit_combiner
 ```
-Checkpoints save to `ml/checkpoints/<arch>_best.pth`, the paths the seeded model registry
-already expects. **Restart the backend** after training (models are cached in-process).
+**Restart the backend** after training (models are cached in-process). Stop the backend
+*before* GPU training or evaluation — two processes sharing a 6 GB GPU can crash CUDA.
 
 ---
 
@@ -103,8 +110,9 @@ Open http://localhost:5173
 
 ## 7. First run flow
 1. Register a user in the UI.
-2. Go to **Image Detection**, upload an image, choose a model, click **Detect**.
-3. View the verdict, confidence, and Grad-CAM heatmap.
+2. Go to **Image Detection**, upload an image (the default model is the ensemble), click **Detect**.
+3. View the verdict (REAL / UNCERTAIN / FAKE), likely fake type, per-detector scores and Grad-CAM
+   heatmap. Phone screenshots are cropped to the photo automatically.
 4. Check **History** and **Analytics**.
 
 ---
@@ -120,6 +128,10 @@ Open http://localhost:5173
 | 500 on register/login (`password cannot be longer than 72 bytes`) | bcrypt 5.x breaks passlib 1.7.4 — pin `bcrypt==4.0.1` |
 | `module 'cv2' has no attribute 'CascadeClassifier'` | Bad OpenCV wheel — `pip install opencv-python==4.10.0.84` |
 | `UnicodeEncodeError` during training (Windows) | Fixed in `ml/utils/logger.py` (UTF-8 handlers); update if on an old copy |
+| `Data truncated for column 'verdict'` | Database created before the UNCERTAIN verdict: `ALTER TABLE predictions MODIFY verdict ENUM('real','fake','uncertain') NOT NULL;` |
+| `No active model for architecture 'ensemble'` | Older database: `INSERT INTO models (name, architecture, weights_path, is_active) VALUES ('Ensemble-DF','ensemble','ml/checkpoints/combiner.pkl',1);` |
+| `CUDA error: unknown error` / `bad allocation` | Another process is using the GPU or RAM is low — stop the backend during training, use `--workers 0` |
+| First detection takes ~20 s | Models load on startup in the background; wait for `[startup] ensemble models loaded` |
 
 ---
 
@@ -133,3 +145,4 @@ Open http://localhost:5173
 | 10 | [phase10_results.md](phase10_results.md) |
 | 11 | [phase11_final_report.md](phase11_final_report.md) |
 | 12 | [phase12_viva.md](phase12_viva.md) |
+| 13 | [phase13_generalization.md](phase13_generalization.md) |

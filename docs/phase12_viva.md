@@ -1,16 +1,19 @@
 # Phase 12 — Viva Preparation (100 Questions & Answers)
 
 Grouped into: Project/General · Deep Learning · Research · System Design ·
-Backend/Frontend/Database. Concise, exam-ready answers.
+Backend/Frontend/Database · **Generalization & Ensemble (F, Q101–Q125)**. Concise,
+exam-ready answers. Numbers match [phase13_generalization.md](phase13_generalization.md).
 
 ---
 
 ## A. Project & General (Q1–Q20)
 
 1. **What is your project about?**
-   An explainable full-stack system that detects deepfake images and videos using CNNs
-   (ResNet50, EfficientNet-B0, Xception), returns a confidence score, and highlights
-   manipulated regions with Grad-CAM.
+   An explainable full-stack system that detects deepfake images and videos. It uses an
+   ensemble of three specialised detectors (XceptionNet for GAN faces, an EfficientNet-B4
+   trained with Self-Blended Images for face swaps, and CLIP ViT-L/14 for AI-generated images),
+   returns REAL / UNCERTAIN / FAKE with a confidence and the likely type of fake, and
+   highlights manipulated regions with Grad-CAM.
 
 2. **What is a deepfake?** Synthetic media where a person's face is swapped or reenacted using
    deep learning (GANs/autoencoders), producing realistic but fake images/videos.
@@ -21,31 +24,38 @@ Backend/Frontend/Database. Concise, exam-ready answers.
 4. **What problem does your project solve?** Automated, explainable authentication of facial
    media that humans can no longer reliably judge.
 
-5. **What are the main features?** Image/video detection, confidence scores, Grad-CAM heatmaps,
-   model comparison, history, analytics, JWT auth.
+5. **What are the main features?** Image/video detection with a 3-detector ensemble,
+   REAL/UNCERTAIN/FAKE verdicts, likely fake type, per-detector scores, screenshot cropping,
+   Grad-CAM heatmaps, model comparison, history, analytics, JWT auth.
 
-6. **Which dataset did you use?** A balanced 3,000-image real/fake face dataset (public
-   HuggingFace `Hemg/deepfake-and-real-images`, 1,500 real + 1,500 fake, split 70/15/15).
-   The pipeline also supports the standard video benchmarks (FaceForensics++, Celeb-DF, DFDC)
-   for scale-up.
+6. **Which datasets did you use?** Four public datasets: **Hemg** deepfake-and-real-images
+   (190k GAN-style faces), **140k Real and Fake Faces** (FFHQ vs StyleGAN), **OpenFake**
+   (real photos vs 89 modern generators incl. Gemini, Imagen, GPT-image, Midjourney, Flux), and
+   **DeepFakeFace** (InsightFace face swaps — used only for testing). The prototype started
+   with a 3,000-image Hemg sample.
 
 7. **What is your tech stack?** PyTorch, OpenCV, FastAPI, SQLAlchemy, MySQL, React, Tailwind.
 
-8. **Why three models?** To compare architectures and select the best (Xception ≈ ResNet50)
-   while showing trade-offs (EfficientNet-B0 is the smallest/fastest).
+8. **Why three models?** Two different "threes": in Stage 1, ResNet50 / EfficientNet-B0 /
+   Xception were *alternatives* compared on the same task (Xception ≈ ResNet50 best). In the
+   final system, three *specialists* work together — each catches a different kind of fake —
+   and a combiner merges their scores.
 
-9. **What accuracy did you achieve?** On the held-out test split: XceptionNet **96.4% acc /
-   0.991 AUC**, ResNet50 96.2% / 0.993, EfficientNet-B0 89.1% / 0.972. (Trained via transfer
-   learning on the HuggingFace face dataset; benchmark-grade video numbers require retraining
-   on FaceForensics++-style video frames.)
+9. **What accuracy did you achieve?** Single-dataset: XceptionNet **98.4% / AUC 0.9986**
+   (181k Hemg images). Across four kinds of fake (8,000 held-out decisions, clean +
+   WhatsApp-compressed): the ensemble **84.5% / AUC 0.925**, versus 70.0% for the best single
+   model. On diffusion images and face swaps accuracy rose from about 49% to about 80%.
 
 10. **Who are the users?** Guests, registered users, and admins (role-based access).
 
-11. **What is the novelty?** Integration of strong detection + Grad-CAM explainability +
-    secure full-stack app with history and analytics.
+11. **What is the novelty?** A cross-domain evaluation that exposed the failure of a 98%
+    single-dataset model, and a specialised ensemble (GAN faces + SBI face swaps + CLIP AI
+    images, learned combiner) that fixes it — integrated with screenshot handling, Grad-CAM
+    explainability and a secure full-stack app.
 
-12. **What are the limitations?** Face-only, batch (not live), no audio, and sensitivity to
-    heavy compression / unseen generators.
+12. **What are the limitations?** Face swaps are the weakest category (72–79%, often
+    UNCERTAIN); Midjourney 7 is 57%; generators released after training will be harder; video
+    is frame-by-frame (no temporal model) and not yet tested on real deepfake videos; no audio.
 
 13. **How is confidence computed?** Softmax probability of the predicted class; for video, the
     aggregated fake probability.
@@ -63,8 +73,8 @@ Backend/Frontend/Database. Concise, exam-ready answers.
 18. **How is data stored?** MySQL with six tables (users, models, uploaded_files, predictions,
     detection_results, audit_logs).
 
-19. **Is it production-ready?** It's a production-quality prototype; future work adds Docker,
-    cloud deploy, and ensembles.
+19. **Is it production-ready?** It's a production-quality prototype; future work adds real
+    face-swap video data (Celeb-DF), Docker, and cloud deployment.
 
 20. **What did you learn?** End-to-end ML system building: data, training, explainability, API,
     frontend, and security.
@@ -282,13 +292,15 @@ Backend/Frontend/Database. Concise, exam-ready answers.
 
 91. **What is Pydantic used for?** Request/response validation and serialization (DTOs).
 
-92. **How is the model chosen at inference?** By architecture name from the active model registry
-    (defaults to Xception).
+92. **How is the model chosen at inference?** By architecture name from the active model registry;
+    the default is `ensemble` (Ensemble-DF). Single models remain selectable.
 
 93. **How is multi-model comparison implemented?** The file is read once and each active model is
     run on a fresh in-memory copy.
 
-94. **What happens if no face is detected?** The system falls back to the whole resized frame.
+94. **What happens if no face is detected?** The face detectors fall back to the whole resized
+    frame; the CLIP detector always uses the whole image, so AI-generated scenes without faces
+    are still judged.
 
 95. **How is video verdict aggregated?** Mean (default), max, or majority vote of per-frame fake
     probabilities.
@@ -310,8 +322,103 @@ Backend/Frontend/Database. Concise, exam-ready answers.
 
 ---
 
+---
+
+## F. Generalization & Ensemble (Q101–Q125)
+
+101. **Why wasn't 98% accuracy enough?** It was measured on the same dataset the model trained
+     on. On face swaps it scored 49% and on diffusion images 49% with AUC 0.215 — a 98% model
+     that fails on the fakes people actually see.
+
+102. **What does an AUC of 0.215 mean?** Below 0.5 means the ranking is *inverted*: the model
+     scored real photos as more fake than AI images. It learned "unusual = fake" from GAN faces,
+     but diffusion images are unusually clean.
+
+103. **Why not one model for all kinds of fake?** Different fakes leave different evidence
+     (GAN fingerprints, blending boundaries, global "too perfect" statistics), they need different
+     inputs (face crop vs whole image), and our own results showed cues for one kind hurt another.
+     With one 6 GB GPU, specialists + a combiner is stronger.
+
+104. **What is Self-Blended Images (SBI)?** A method (CVPR 2022) that makes fake training data
+     from real faces: a slightly altered copy of the face is blended back onto itself through a
+     soft mask. The model learns blending artefacts that every swap has, without seeing real swaps.
+
+105. **Why does SBI generalize?** It targets the step all swap tools share — blending a face into
+     a photo — rather than one tool's fingerprint. Ours scored AUC 0.888 on InsightFace swaps it
+     never saw.
+
+106. **What is CLIP?** A model trained by OpenAI on 400M image–text pairs; it turns an image into a
+     768-number feature vector that captures general visual meaning.
+
+107. **What is a linear probe / UnivFD?** Keep CLIP frozen and train only a linear classifier on
+     its features. UnivFD (CVPR 2023) showed this generalizes to unseen generators far better than
+     a CNN trained from scratch.
+
+108. **Why freeze CLIP instead of fine-tuning it?** Fine-tuning on a small dataset overfits to the
+     training generators and erodes CLIP's general features; freezing keeps them and trains in
+     minutes on a laptop GPU.
+
+109. **How accurate is the CLIP detector?** 88.7% / AUC 0.961 on OpenFake's test split
+     (89 generators); 94% on GPT-image-1.5, 80% on Gemini nano-banana-pro, 57% on Midjourney 7.
+
+110. **What is the combiner?** A gradient-boosted tree model (scikit-learn
+     HistGradientBoosting) that takes the three detectors' probabilities and outputs one.
+
+111. **Why gradient boosting and not an average?** Trees learn rules such as "trust Xception when
+     it is very sure, even if CLIP disagrees". In cross-validation a linear (logistic) combiner
+     reached 83.2% vs 85.3% for trees; the gap was mostly on compressed StyleGAN faces (75% vs 87%).
+
+112. **How did you avoid overfitting the combiner to the test set?** It was fitted only on
+     validation images (7,962 samples, including a DeepFakeFace subset disjoint from the test
+     subset); every reported number comes from separate test images.
+
+113. **What is the UNCERTAIN verdict?** If the combined fake probability is between 0.35 and 0.65 the
+     system says "not sure". 13.4% of test inputs land there; accuracy on the rest is 89.1%.
+
+114. **How is the likely fake type decided?** The detector with the highest score names it:
+     GAN-generated face, face swap / face edit, or AI-generated image.
+
+115. **How does screenshot handling work?** If the image is screen-shaped, find the app's
+     background colour, keep the tallest block of rows (then columns) that are not background and
+     have many colours, and analyse only that region.
+
+116. **How well does it work?** Photo found in 94.3% of test screenshots (IoU ≈ 0.90), 0 of 400
+     ordinary photos wrongly cropped, and ensemble accuracy on screenshots rose from 72.9% to 84.4%.
+
+117. **Why YuNet instead of Haar?** YuNet is a small CNN: it found faces in ~95% of Hemg images
+     versus ~81% for Haar, handles angles and low quality better, and gives landmarks for SBI.
+
+118. **What was the face-crop bug?** Inference cropped faces tighter than the training images, so
+     the model called 47% of real faces fake (75.8% vs 97.8%). Inference now crops at the training
+     framing.
+
+119. **How did you test robustness to WhatsApp?** Every test image was also downscaled and
+     re-saved as JPEG quality 50; the ensemble scores 81.8% on those (old model 66.4%).
+
+120. **How did you make the splits fair?** Fixed seeds, held-out test images excluded from all
+     training and combiner fitting, and splits re-checked to be identical across runs.
+
+121. **What is data leakage and how did you avoid it?** Test information reaching training. We
+     kept test sets separate, fitted the combiner on validation only, and kept DeepFakeFace
+     entirely out of training.
+
+122. **Why did you re-save all OpenFake images as JPEG?** Real images were mostly JPEG and fakes
+     mostly PNG; without equalising, the detector could learn "PNG = fake".
+
+123. **What would improve face swaps most?** Real face-swap video data (Celeb-DF / FaceForensics++)
+     mixed with SBI training; finer 468-point masks give a smaller gain.
+
+124. **What is the trade-off of the ensemble?** GAN-face accuracy drops ~3–5 points (the new
+     detectors sometimes flag real Hemg photos), in exchange for +30 points on AI images and swaps.
+
+125. **Could the ensemble become one model?** Yes, by knowledge distillation — train one compact
+     student to mimic the ensemble — useful for phones, at some accuracy cost.
+
+---
+
 ### Rapid-fire one-liners
-- **Epochs:** up to 15 (GPU) with early stopping. · **Batch size:** 32. · **Image size:** 224×224.
-- **Training:** transfer learning (ImageNet-pretrained), AdamW + cosine LR, AMP mixed precision, on an NVIDIA RTX 4050 GPU (~18 s/epoch).
-- **LR:** 1e-4, cosine schedule. · **Positive class:** fake (index 1).
-- **Best model:** XceptionNet. · **Explainability:** Grad-CAM. · **Auth:** JWT + bcrypt.
+- **Stage-1 training:** transfer learning, AdamW + cosine LR, AMP, batch 32, 224×224, RTX 4050.
+- **Detectors:** Xception (GAN faces, 224 px) · EfficientNet-B4 + SBI (face swaps, 256 px) · CLIP ViT-L/14 + linear head (AI images).
+- **Combiner:** HistGradientBoosting, fitted on validation only. · **Uncertain band:** 0.35–0.65.
+- **Final benchmark:** 84.5% / AUC 0.925 (old 70.0%). · **Screenshots:** 84.4% (old 72.9%).
+- **Positive class:** fake (index 1). · **Explainability:** Grad-CAM + per-detector scores. · **Auth:** JWT + bcrypt.

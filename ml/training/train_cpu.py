@@ -21,7 +21,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description="CPU training launcher")
     p.add_argument("--arch", default="xception",
                    choices=["resnet50", "efficientnet_b0", "xception"])
-    p.add_argument("--data", default="datasets/processed")
+    p.add_argument("--data", default="datasets/hemg")
     p.add_argument("--epochs", type=int, default=8)
     p.add_argument("--batch-size", type=int, default=16)
     p.add_argument("--lr", type=float, default=1e-4)

@@ -26,6 +26,7 @@ export default function History() {
           <option value="">All verdicts</option>
           <option value="real">Real</option>
           <option value="fake">Fake</option>
+          <option value="uncertain">Uncertain</option>
         </select>
         <select value={mediaType} onChange={(e) => setMediaType(e.target.value)} className="input max-w-[160px]">
           <option value="">All media</option>
@@ -58,7 +59,9 @@ export default function History() {
                   <td className="px-4 py-3 capitalize">{p.media_type}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      p.verdict === "fake" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                      p.verdict === "fake" ? "bg-red-100 text-red-700"
+                        : p.verdict === "uncertain" ? "bg-amber-100 text-amber-700"
+                        : "bg-green-100 text-green-700"
                     }`}>{p.verdict.toUpperCase()}</span>
                   </td>
                   <td className="px-4 py-3">{Math.round(p.confidence * 100)}%</td>

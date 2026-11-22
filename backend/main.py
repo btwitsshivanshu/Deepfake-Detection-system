@@ -60,6 +60,21 @@ def create_app() -> FastAPI:
         except Exception as exc:  # pragma: no cover - non-fatal in dev
             print(f"[startup] init_db skipped: {exc}")
 
+        # Warm up the ensemble (3 detectors + CLIP) in the background so the
+        # first user request doesn't wait ~20 s for model loading.
+        if settings.DEFAULT_MODEL == "ensemble":
+            import threading
+
+            def _warm() -> None:
+                try:
+                    from ml.ensemble import _load
+                    _load()
+                    print("[startup] ensemble models loaded")
+                except Exception as exc:  # pragma: no cover
+                    print(f"[startup] ensemble warm-up skipped: {exc}")
+
+            threading.Thread(target=_warm, daemon=True).start()
+
     @app.get("/api/health", tags=["Health"])
     def health() -> dict:
         return {"status": "ok", "service": "deepfake-detection", "version": "1.0.0"}

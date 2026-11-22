@@ -31,6 +31,7 @@ def summary(db: Session, user: User) -> AnalyticsSummary:
         total_predictions=total,
         real_count=verdicts.get("real", 0),
         fake_count=verdicts.get("fake", 0),
+        uncertain_count=verdicts.get("uncertain", 0),
         image_count=media.get("image", 0),
         video_count=media.get("video", 0),
         avg_confidence=round(avg_conf, 4),

@@ -8,7 +8,7 @@ Loads a trained checkpoint, runs it over the test split and produces:
 
 Usage:
     python -m ml.evaluation.evaluate --arch xception \
-        --weights ml/checkpoints/xception_best.pth --data datasets/processed
+        --weights ml/checkpoints/xception_best.pth --data datasets/hemg
 """
 from __future__ import annotations
 
@@ -98,7 +98,7 @@ def main() -> None:
     p.add_argument("--arch", required=True,
                    choices=["resnet50", "efficientnet_b0", "xception"])
     p.add_argument("--weights", required=True)
-    p.add_argument("--data", default="datasets/processed")
+    p.add_argument("--data", default="datasets/hemg")
     args = p.parse_args()
     evaluate(args.arch, args.weights, args.data)
 

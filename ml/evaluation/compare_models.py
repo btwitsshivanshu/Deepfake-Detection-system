@@ -5,7 +5,7 @@ Evaluates all three architectures on the same test split and writes a
 combined comparison table (JSON + bar chart) for the results chapter.
 
 Usage:
-    python -m ml.evaluation.compare_models --data datasets/processed
+    python -m ml.evaluation.compare_models --data datasets/hemg
 """
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def compare(data_root: str) -> dict:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Compare all detectors")
-    p.add_argument("--data", default="datasets/processed")
+    p.add_argument("--data", default="datasets/hemg")
     args = p.parse_args()
     compare(args.data)
 

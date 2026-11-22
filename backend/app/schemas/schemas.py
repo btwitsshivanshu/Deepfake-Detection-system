@@ -75,6 +75,9 @@ class DetectionResponse(BaseModel):
     inference_ms: int | None = None
     heatmap_url: str | None = None
     model_used: str
+    fake_type: str | None = None
+    detector_scores: dict[str, float] | None = None
+    screenshot_crop: list[int] | None = None
     frames: list[FrameResult] = []
 
 
@@ -83,6 +86,7 @@ class AnalyticsSummary(BaseModel):
     total_predictions: int
     real_count: int
     fake_count: int
+    uncertain_count: int = 0
     image_count: int
     video_count: int
     avg_confidence: float

@@ -17,7 +17,7 @@ def list_history(
     offset: int = 0,
 ) -> list[Prediction]:
     query = db.query(Prediction).filter(Prediction.user_id == user.id)
-    if verdict in {"real", "fake"}:
+    if verdict in {"real", "fake", "uncertain"}:
         query = query.filter(Prediction.verdict == verdict)
     if media_type in {"image", "video"}:
         query = query.filter(Prediction.media_type == media_type)

@@ -48,10 +48,19 @@ class TrainConfig:
     # data splitting
     val_split: float = 0.15
     test_split: float = 0.15
+    max_per_class: int | None = None        # cap images per class (quick runs)
 
     # video inference
     video_frames: int = 20                  # frames sampled per video
     frame_agg: str = "mean"                 # mean | max | vote
+    # inference face framing: YuNet face-box width / crop width. Must match the
+    # training images (YuNet: Hemg faces span ~0.36-0.46, 140k ~0.56 of the
+    # image); a tighter crop makes real faces look fake. 0.36 swept best.
+    infer_face_ratio: float = 0.36
+    # fake-probability band reported as "uncertain" instead of a confident
+    # real/fake call (out-of-distribution inputs tend to land here)
+    uncertain_low: float = 0.35
+    uncertain_high: float = 0.65
 
 
 PATHS = Paths()

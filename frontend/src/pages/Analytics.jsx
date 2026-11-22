@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { analyticsApi } from "../services/api.js";
 
-const COLORS = ["#22c55e", "#ef4444"];
+const COLORS = ["#22c55e", "#ef4444", "#f59e0b"];
 
 export default function Analytics() {
   const [data, setData] = useState(null);
@@ -29,6 +29,7 @@ export default function Analytics() {
   const verdictData = [
     { name: "Real", value: data.real_count },
     { name: "Fake", value: data.fake_count },
+    { name: "Uncertain", value: data.uncertain_count || 0 },
   ];
   const mediaData = [
     { name: "Image", value: data.image_count },

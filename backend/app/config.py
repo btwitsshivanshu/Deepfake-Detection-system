@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_MB: int = 100
     FRONTEND_ORIGIN: str = "http://localhost:5173"
     DEVICE: str = "cpu"
-    DEFAULT_MODEL: str = "xception"
+    DEFAULT_MODEL: str = "ensemble"
 
     @property
     def database_url(self) -> str:

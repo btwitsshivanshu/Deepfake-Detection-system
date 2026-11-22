@@ -123,8 +123,9 @@ def run_detection(
             heatmap_path=fr.get("heatmap_path") or result.get("heatmap_path"),
         ))
 
+    details = result["verdict"] + (f" ({result['fake_type']})" if result.get("fake_type") else "")
     db.add(AuditLog(user_id=user.id, action="detection",
-                    entity=media_type, details=result["verdict"]))
+                    entity=media_type, details=details))
     db.commit()
     db.refresh(prediction)
 
@@ -138,6 +139,9 @@ def run_detection(
         inference_ms=result.get("inference_ms"),
         heatmap_url=_to_url(result.get("heatmap_path")),
         model_used=model.name,
+        fake_type=result.get("fake_type"),
+        detector_scores=result.get("detector_scores"),
+        screenshot_crop=result.get("screenshot_crop"),
         frames=[FrameResult(**fr) for fr in result["frames"]],
     )
 

@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 import torch
 
-from ml.config import CONFIG, IDX_TO_CLASS
+from ml.config import CONFIG
 from ml.dataset.face_extraction import (
     extract_face,
     extract_faces_from_video,
@@ -34,6 +34,15 @@ from ml.utils.seed import get_device
 _MODEL_CACHE: dict[str, torch.nn.Module] = {}
 _TRANSFORM = eval_transforms(CONFIG.image_size)
 _DEVICE = get_device(CONFIG.device)
+
+
+def verdict_from_prob(fake_prob: float) -> tuple[str, float]:
+    """Map a fake probability to (verdict, confidence) with an uncertain band."""
+    if fake_prob >= CONFIG.uncertain_high:
+        return "fake", fake_prob
+    if fake_prob <= CONFIG.uncertain_low:
+        return "real", 1.0 - fake_prob
+    return "uncertain", max(fake_prob, 1.0 - fake_prob)
 
 
 def _get_model(architecture: str, weights_path: str):
@@ -64,11 +73,15 @@ def predict_image(
     heatmap_dir: str | Path,
 ) -> dict:
     """Run detection on a single image and produce a Grad-CAM overlay."""
+    if architecture == "ensemble":
+        from ml.ensemble import predict_image_ensemble
+        return predict_image_ensemble(image_path, heatmap_dir)
     t0 = time.time()
     model = _get_model(architecture, weights_path)
 
     image = load_image_rgb(image_path)
-    face = extract_face(image, out_size=CONFIG.image_size)
+    face = extract_face(image, out_size=CONFIG.image_size,
+                        face_ratio=CONFIG.infer_face_ratio)
     if face is None:  # fall back to whole image if no face detected
         face = cv2.resize(image, (CONFIG.image_size, CONFIG.image_size))
 
@@ -85,8 +98,9 @@ def predict_image(
     heatmap_path = Path(heatmap_dir) / f"heatmap_{uuid.uuid4().hex}.jpg"
     cv2.imwrite(str(heatmap_path), cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
 
+    verdict, confidence = verdict_from_prob(float(fake_prob))
     return {
-        "verdict": IDX_TO_CLASS[idx],
+        "verdict": verdict,
         "confidence": round(confidence, 4),
         "fake_probability": round(float(fake_prob), 4),
         "frames_analyzed": 1,
@@ -106,10 +120,14 @@ def predict_video(
     agg: str = CONFIG.frame_agg,
 ) -> dict:
     """Sample frames, run per-frame detection and aggregate to a video verdict."""
+    if architecture == "ensemble":
+        from ml.ensemble import predict_video_ensemble
+        return predict_video_ensemble(video_path, heatmap_dir, num_frames)
     t0 = time.time()
     model = _get_model(architecture, weights_path)
     faces = extract_faces_from_video(video_path, num_frames=num_frames,
-                                     out_size=CONFIG.image_size)
+                                     out_size=CONFIG.image_size,
+                                     face_ratio=CONFIG.infer_face_ratio)
     if not faces:
         raise ValueError("No frames could be extracted from the video.")
 
@@ -143,8 +161,7 @@ def predict_video(
     else:  # mean
         video_fake = float(fake_probs_np.mean())
 
-    verdict = "fake" if video_fake > 0.5 else "real"
-    confidence = video_fake if verdict == "fake" else 1.0 - video_fake
+    verdict, confidence = verdict_from_prob(video_fake)
 
     return {
         "verdict": verdict,
